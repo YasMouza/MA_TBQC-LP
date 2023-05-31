@@ -89,9 +89,9 @@ ldf_ac.run()
 for load in load_all:
     load.P = 0
     load.Q = -150
-load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
-load_df = load_df.set_index('name')
-print(load_df)
+load_df_a = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
+load_df_a = load_df_a.set_index('name')
+print(load_df_a)
 
 # Carry out Loadflow calculation
 V2 = V1 - (complex(bus2_p/Sbase, bus2_q/Sbase) / V1) * X/Sbase
@@ -109,9 +109,9 @@ ldf_ac.run()
 for load in load_all:
     load.P = 0
     load.Q = -150
-load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
-load_df = load_df.set_index('name')
-print(load_df)
+load_df_b = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
+load_df_b = load_df_b.set_index('name')
+print(load_df_b)
 
 # Carry out Loadflow calculation
 V2 = V1 - (complex(bus2_p/Sbase, bus2_q/Sbase) / V1) * X/Sbase
@@ -129,9 +129,9 @@ ldf_ac.run()
 for load in load_all:
     load.P = 0
     load.Q = -150
-load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
-load_df = load_df.set_index('name')
-print(load_df)
+load_df_c = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
+load_df_c = load_df_c.set_index('name')
+print(load_df_c)
 
 # Carry out Loadflow calculation
 V2 = V1 - (complex(bus2_p/Sbase, bus2_q/Sbase) / V1) * X/Sbase
@@ -149,9 +149,9 @@ ldf_ac.run()
 for load in load_all:
     load.P = 0
     load.Q = -150
-load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
-load_df = load_df.set_index('name')
-print(load_df)
+load_df_d = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
+load_df_d = load_df_d.set_index('name')
+print(load_df_d)
 
 # Carry out Loadflow calculation
 V2 = V1 - (complex(bus2_p/Sbase, bus2_q/Sbase) / V1) * X/Sbase
@@ -166,9 +166,9 @@ print(V2_mag, V2_ang)
 for load in load_all:
     load.P = 0
     load.Q = -150
-load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
-load_df = load_df.set_index('name')
-print(load_df)
+load_df_e = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
+load_df_e = load_df_e.set_index('name')
+print(load_df_e)
 
 # Carry out loadflow
 ldf_ac.run()
@@ -182,16 +182,17 @@ V2_mag = np.abs(V2)
 V2_ang = np.angle(V2)
 print(V2_mag, V2_ang)
 
-#save the results in a dataframe
+#save the results of all cases in a dataframe 
 load_df = pd.DataFrame({'name': load_names, 'p': load_p, 'q': load_q})
 load_df = load_df.set_index('name')
 print(load_df)
 
-# make a plot of the voltage magnitude and voltage angle at busbar 2 as a function of the active power of the load
-plot = plt.figure()
-plt.plot(load_df['p'], V2_mag)
-plt.xlabel('Active power of load [MW]')
-plt.ylabel('Voltage magnitude at busbar 2 [p.u.]')
-plt.show()
+# dataframe of sgen of all cases a to e 
+sgen_df = pd.DataFrame({'name': sgen_names, 'p': sgen_p, 'q': sgen_q})
+sgen_df = sgen_df.set_index('name')
+print(sgen_df)
+
+
+
 
 test = 1
