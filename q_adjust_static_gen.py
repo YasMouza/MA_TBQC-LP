@@ -7,8 +7,8 @@ import math as m
 # def calculate_static_generator_q(V1, V2, load_p, load_q, sgen_p, X, Zbase):
 #     return (V1 - V2) * (load_p / V1) + load_q - (sgen_p * (X / Zbase) / V1)
 
-def calculate_static_generator_q(V1, V2, load_q, xpu):
-    return  V2**2*xpu + V1*V2*xpu + load_q
+def calculate_static_generator_q(V1, V2, load_p, sgen_p, load_q, xpu, Zbase):
+    return  V2**2*xpu + V1*V2*xpu + (load_p)/Zbase + load_q
 
 # 1. ACloadflow
 path = r'C:\Program Files\DIgSILENT\PowerFactory 2023 SP3A\Python\3.9'
@@ -35,8 +35,6 @@ bus1 = bus_all[0]
 bus2 = bus_all[1]
 V1 = bus1.GetAttribute('m:u')
 V2 = bus2.GetAttribute('m:u')
-
-test = 1
 
 # 1.4 Generator parameters
 gen_all = app.GetCalcRelevantObjects('*.ElmGenstat')
@@ -65,7 +63,7 @@ for sgen in sgen_all:
 
 # Define Zbase
 Sbase = 100
-Zbase = 400**2 / Sbase
+Zbase = 400e3**2/Sbase
 
 # Define load conditions from 5 cases
 load_conditions = [
@@ -103,7 +101,7 @@ for condition in load_conditions:
     # Q_gen_calc = calculate_static_generator_q(V1, V2, load_p, load_q, sgen_p, X, Zbase)
     # sgen_q_calc.append(Q_gen_calc)
     
-    Q_gen_calc = calculate_static_generator_q(V1, V2, load_q, xpu)
+    Q_gen_calc = calculate_static_generator_q(V1, V2, load_p, sgen_p, load_q, xpu, Zbase)
     sgen_q_calc.append(Q_gen_calc)
     
 
