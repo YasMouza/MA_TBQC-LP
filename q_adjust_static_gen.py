@@ -8,7 +8,10 @@ import math as m
 #     return (V1 - V2) * (load_p / V1) + load_q - (sgen_p * (X / Zbase) / V1)
 
 def calculate_static_generator_q(V1, V2, load_p, sgen_p, load_q, xpu, Zbase):
-    return  V2**2*xpu + V1*V2*xpu + (load_p)/Zbase + load_q
+    if load_p != 0:
+        return  V2**2*xpu + V1*V2*xpu +1/load_p + load_q
+    else:
+        return V2**2*xpu + V1*V2*xpu + load_q
 
 # 1. ACloadflow
 path = r'C:\Program Files\DIgSILENT\PowerFactory 2023 SP3A\Python\3.9'

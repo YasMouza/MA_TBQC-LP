@@ -192,7 +192,4 @@ sgen_df = pd.DataFrame({'name': sgen_names, 'p': sgen_p, 'q': sgen_q})
 sgen_df = sgen_df.set_index('name')
 print(sgen_df)
 
-
-
-
 test = 1
