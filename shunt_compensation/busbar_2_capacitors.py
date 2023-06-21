@@ -9,17 +9,12 @@ import pandas as pd
 from main_powerfactory import PowerFactory
 from loadflow import LoadFlow
 
-# def calculate_shunt_compensation(V1, V2, load_p, load_q, xpu, Zbase, shunt_q_1):
-#     if load_p != 0:
-#         return  V2**2*xpu + V1*V2*xpu - 1/load_p + load_q - shunt_q_1  
-#     else:
-#         return V2**2*xpu + V1*V2*xpu + load_q - shunt_q_1
     
 
 def calculate_shunt_compensation(load_q, xpu, Sbase, shunt_q_1, load_p):
     if load_p != 0:
         if load_q <= 0:
-            return (- load_q - shunt_q_1) 
+            return (- load_q - shunt_q_1)
         elif load_q > 0:
             return  -(load_q + shunt_q_1) 
     elif load_p == 0:
@@ -36,6 +31,8 @@ project_name = 'TBQC - Shunt Capacitor compensation'
 app = pf.open_app(project_name)
 ldf_ac = LoadFlow(app)
 #ldf_ac.run()
+ldf_ac.iopt_pq = 1
+
 
 ### 1. Get parameters
 # 1.1 Line parameters
@@ -63,9 +60,14 @@ load_all = app.GetCalcRelevantObjects('*.ElmLod')
 
 # 1.5 shunt compensation parameters
 shunt_all = app.GetCalcRelevantObjects('*.ElmShnt')
-shunt_all[0].qcapn = 100
-shunt2 = shunt_all[1]
-
+shunt2 = shunt_all[0]
+shunt1 = shunt_all[1]
+print('Shunt 1 = ',shunt1.loc_name)
+shunt2.qs = 100.0
+shunt2.iopt_save = 1
+print(shunt2.qcapn)
+print('Shunt2 = ',shunt2.loc_name)
+test = 1
 shunt_q_1 = -100
 Sbase = 100
 Zbase = 400e3**2/Sbase
@@ -106,17 +108,21 @@ for i, (shunt_q_calc, condition) in enumerate(zip(shunt_q_calc_values, load_cond
     
     # Set the shunt type based on the load_q
     if load_q <= 0:
-        shunt2.shtype = 1  # Inductive
+        shunt1.shtype = 1  # Inductive
+        shunt1.qrean = float(shunt_q_calc)
     else:
-        shunt2.shtype = 2  # Capacitive
+        shunt1.shtype = 2  # Capacitive
+        shunt1.qcapn = float(shunt_q_calc)
 
     # Set the reactive power
-    shunt2.qcapn = float(shunt_q_calc)
-    load_all[0].qlini = load_q
     
+    load_all[0].qlini = load_q
+    print(shunt1.qcapn)
+    print(shunt1.qrean)
     # Run the load flow calculation
     ldf_ac.run()
-
+    ldf_ac.iopt_pq = 1
+    
     # Get the voltage at bus 2
     voltage = bus2.GetAttribute('m:u')
     
