@@ -40,12 +40,11 @@ z = x**2 + y**2
 plt.figure(figsize=(8, 6))
 contour = plt.contour(x, y, z, levels=np.logspace(-2, 0, 5))
 plt.clabel(contour, inline=1, fontsize=10)
-#plt.title('Contour plot of the objective function')
 plt.xlabel('x1')
 plt.ylabel('x2')
 
+
 # Add the constraint line
-#plt.plot(x, 1 - x, 'r-', label='x1 + x2 = 1')
 plt.plot(0.5, 0.5, 'go', label='Optimal solution (0.5, 0.5)')
 
 plt.legend()

@@ -39,6 +39,7 @@ model = gp.Model("ACLoadFlow")
 ### 2.1 CREATE VARIABLES
 V = model.addVars(n_buses, lb=0.9, ub=1.1, name="V")  # Voltage magnitudes
 theta = model.addVars(n_buses, lb=-math.pi, ub=math.pi, name="theta")  # Voltage angles
+k = model.addVar(lb=1, ub=10, vtype=GRB.INTEGER, name="k")
 
 mu = 0.1 ### Barrier parameter
 
@@ -77,7 +78,7 @@ model.setObjective(V[1], GRB.MAXIMIZE)
 
 # Set the optimization method to Interior-Point
 model.Params.Method = 2
-model.write('SVC_modelling.lp')
+model.write('IPM_OPF\\SVC_modelling.lp')
 # Solve the model
 model.optimize()
 

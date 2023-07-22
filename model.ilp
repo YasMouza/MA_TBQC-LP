@@ -1,0 +1,12 @@
+\ Model optimal_power_flow_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ qc0: V_product + [ - V[0] * V[1] ] = 0
+ q1: [ - 0.390625 V_product * sin_theta_diff ] <= -0.5
+Bounds
+ 0.9 <= V[0] <= 1.1
+ -infinity <= V[1] <= 1.1
+ -infinity <= sin_theta_diff <= 1
+End
