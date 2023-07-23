@@ -8,7 +8,7 @@ from gurobipy import GRB
 n_buses = 2
 X = [[0, 12.8], [12.8, 0]]  # Reactance matrix
 R = [[0, 0], [0, 0]] 
-k = 0.01 # integer variable
+k = 100 # integer variable
 B = [[1 / element if element != 0 else 0 for element in row] for row in X]
 G = [[0, 0], [0, 0]] 
 
@@ -62,9 +62,9 @@ for P_load_value in P_load_range:
         model.addGenConstrSin(sin_theta_diff, theta_diff)
 
         # Add the power flow constraints
-        model.addConstr(k*(p1 - V_product * (B[0][1] * cos_theta_diff)) <= 0, name="p1")
-        model.addConstr(k*(q1 - V_product * (B[0][1] * sin_theta_diff)) <= 0, name="q1")
-        model.addConstr(k*(p2 - V_product * (B[1][0] * cos_theta_diff)) <= 0, name="p2")
+        model.addConstr(p1 - V_product * (B[0][1] * cos_theta_diff) <= 0, name="p1")
+        model.addConstr(q1 - V_product * (B[0][1] * sin_theta_diff) <= 0, name="q1")
+        model.addConstr(p2 - V_product * (B[1][0] * cos_theta_diff) <= 0, name="p2")
         model.addConstr(k*(q2 - V_product * (B[1][0] * sin_theta_diff)) <= 0, name="q2")
 
         # Add constraints to model the absolute value
@@ -72,7 +72,7 @@ for P_load_value in P_load_range:
         model.addConstr(delta_v_plus >= 0)
         model.addConstr(delta_v_minus >= 0)
 
-        model.write("model.lp")
+        model.write("model_feasibility_check.lp")
 
         ### 2.2 ADD OBJECTIVE
         model.setObjective(delta_v_plus + delta_v_minus, GRB.MINIMIZE)

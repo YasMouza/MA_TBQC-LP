@@ -10,10 +10,10 @@ Subject To
  R4: delta_v_plus >= 0
  R5: delta_v_minus >= 0
  qc0: V_product + [ - V[0] * V[1] ] = 0
- p1: [ - 0.006103515625 V_product * cos_theta_diff ] <= 0.4
- q1: [ - 0.006103515625 V_product * sin_theta_diff ] <= 1.9
- p2: [ - 0.006103515625 V_product * cos_theta_diff ] <= 2
- q2: [ - 0.6103515624999999 V_product * sin_theta_diff ] <= 80
+ p1: [ - 0.078125 V_product * cos_theta_diff ] <= 0
+ q1: [ - 0.078125 V_product * sin_theta_diff ] <= 0
+ p2: [ - 0.078125 V_product * cos_theta_diff ] <= -0.5
+ q2: [ - 7.8125 V_product * sin_theta_diff ] <= -50
 Bounds
  0.9 <= V[0] <= 1.1
  0.9 <= V[1] <= 1.1

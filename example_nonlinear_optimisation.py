@@ -17,6 +17,7 @@ model.addConstr(x1 + x2 == 1, "c0")
 
 # Optimize model
 model.optimize()
+model.write("constraints_overview\\model_example.lp")
 
 # Print the optimal solution
 for v in model.getVars():
