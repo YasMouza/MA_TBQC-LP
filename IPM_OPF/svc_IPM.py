@@ -31,8 +31,6 @@ B = [[1 / element if element != 0 else 0 for element in row] for row in X]
 G = [[0, 0], [0, 0]] 
 
 
-
-
 #### 2. CREATE MODEL
 model = gp.Model("ACLoadFlow")
 
@@ -78,7 +76,7 @@ model.setObjective(V[1], GRB.MAXIMIZE)
 
 # Set the optimization method to Interior-Point
 model.Params.Method = 2
-model.write('IPM_OPF\\SVC_modelling.lp')
+model.write('SVC_modelling.lp')
 # Solve the model
 model.optimize()
 
