@@ -1,0 +1,4 @@
+-  Code, Lastflussergebnisse ohne Kompensation (Spannungsabsenkungen, Spannungsüberhöhung)
+-  Zulässiges Spannungsband variieren -> (0.9 ... 1.2) -> (1.0 ... 1.2) -> (1.05 ... 1.15)
+-  Optimierung nach k -> Spannungsabsenkung -> k für Kapazitäten (k=int)
+-  Optimierung nach k -> Spannungsüberhöhung -> k für Induktivität (k=int)
