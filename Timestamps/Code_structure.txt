@@ -1,0 +1,24 @@
+
+
+1. Parameterdefinition:
+Festlegung von Werten für P1, Basisleistung, Basisspannung, Reaktanz der Leitung und Kapazität eines Kondensators.
+Initialisierung einer Liste für die Speicherung der Ergebnisse.
+
+2. Optimierungsschleife über P1-Werte:
+Für jeden Wert von P1 werden zwei Optimierungsphasen durchgeführt.
+
+
+3. Phase 1 - Ermittlung von Q_Comp:
+- Definition und Initialisierung des Modells.
+- Definition der Variablen für Spannungen, Winkel, Q_Comp und Hilfsvariablen.
+- Festlegung der Constraints für das Modell. Diese beschreiben die Beziehungen zwischen den Spannungen, Winkeln und Leistungen im System.
+- Definition der Optimierungsziele: Minimierung der Abweichung der Spannung von 1 p.u. (durch die Variablen delta_plus und delta_minus) und Minimierung von Q_Comp
+​- Ausführung der Optimierung.
+- Speichern der Ergebnisse in der Ergebnisliste.
+
+
+4. Phase 2 - Berücksichtigung der Kondensatoren:
+- Basierend auf dem in Phase 1 berechneten Wert von Q_Comp wird die Anzahl der benötigten Kondensatoren bestimmt.
+- Das Modell wird so definiert, dass es die Mindestanzahl von Kondensatoren (Variable k) bestimmt, die erforderlich sind, um den Wert von Q_Comp zu erreichen oder zu überschreiten.
+Ausführung der Optimierung.
+- Speichern der Ergebnisse in der Ergebnisliste.
