@@ -66,6 +66,7 @@ for P_load_value in P_load_range:
         model.addConstr(q1 - V_product * (B[0][1] * sin_theta_diff) <= 0, name="q1")
         model.addConstr(p2 - V_product * (B[1][0] * cos_theta_diff) <= 0, name="p2")
         model.addConstr(k*(q2 - V_product * (B[1][0] * sin_theta_diff)) <= 0, name="q2")
+      
 
         # Add constraints to model the absolute value
         model.addConstr(delta_v_plus - delta_v_minus == V[1] - 1)

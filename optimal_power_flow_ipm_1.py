@@ -58,7 +58,19 @@ model.addConstr(k * (q2 - quad_intermediate) <= 0, name="q2")
 
 # Here, you would typically set the objective and solve the model
 # For example:
-model.setObjective(k, GRB.MINIMIZE)
+# Define the absolute difference between V[1] and 1 using two additional variables
+delta_plus = model.addVar(lb=0, name="delta_plus")
+delta_minus = model.addVar(lb=0, name="delta_minus")
+
+model.addConstr(V[1] - 1 <= delta_plus)
+model.addConstr(1 - V[1] <= delta_minus)
+
+model.setObjectiveN(delta_plus + delta_minus, 0, priority=1, weight=1, name="PrimaryObj")
+#model.setObjectiveN(delta_plus, 0, priority=1, weight=1, name="PrimaryObj")
+#model.setObjectiveN(V[1], 0, priority=1, weight=-1, name="PrimaryObj")
+# Secondary objective: Minimize k as much as possible
+#model.setObjectiveN(k, 1, priority=2, weight=1, name="SecondaryObj")
+
 model.optimize()
 
 # Display results
@@ -71,5 +83,6 @@ elif model.Status == GRB.OPTIMAL:
     model.printAttr('X')
     model.printAttr('Obj')
     print("Spannung an Sammelschiene 2 in [p.u.]: %g" % V[1].X)
+    print("K:" + str(k.X))
     
     
