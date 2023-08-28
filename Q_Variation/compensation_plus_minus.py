@@ -25,10 +25,10 @@ def setup_phase1_model(P1, Q1, P2, Q2, B):
     model.addConstr(V_product == V[0] * V[1])
 
     model.addConstr(P1 - V_product * (B[0][1] * cos_theta_diff) >= 0, "p1_constraint")
-    if Q1 <= Q2:
-        model.addConstr(- Q2 + Q_Comp - V_product * (B[0][1] * sin_theta_diff) <= 0, "q_constraint_Induktiv")
-    elif Q1 > Q2:
-        model.addConstr(Q2 + Q_Comp - V_product * (B[0][1] * sin_theta_diff) <= 0, "q_constraint_Kapazitiv")
+    if Q2 <= 0:
+        model.addConstr(- Q2 + Q_Comp - V_product * (B[0][1] * sin_theta_diff) <= 0, "q_constraint_capacitive")
+    elif Q2 > 0:
+        model.addConstr(Q2 + Q_Comp - V_product * (B[0][1] * sin_theta_diff) <= 0, "q_constraint_inductive")
     
     model.addConstr(P2 - V_product * (B[1][0] * cos_theta_diff) <= 0, "p2_constraint")
     model.addConstr(Q1 - V_product * (B[0][1] * sin_theta_diff) >= 0, "q_constraint")
