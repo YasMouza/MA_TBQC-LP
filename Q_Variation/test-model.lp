@@ -14,7 +14,7 @@ Subject To
  Voltage_range_bus_2(2): V[1] <= 1.1
  qc0: V_product + [ - V[1] ^2 ] = 0
  p1_constraint: [ - 0.08 cos_theta_diff * V_product ] >= -1
- q_constraint: - Q_Comp + [ - 0.08 sin_theta_diff * V_product ] >= -1
+ q_constraint: - Q_Comp + [ - 0.08 sin_theta_diff * V_product ] >= -8
  p2_constraint: [ - 0.08 cos_theta_diff * V_product ] <= 1
 Bounds
  0.9 <= V[0] <= 1.1

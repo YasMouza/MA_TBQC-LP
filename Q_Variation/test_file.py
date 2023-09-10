@@ -61,73 +61,48 @@ def setup_phase2_model(Q_Comp_value, Q_cap):
     return model
 
 
-def verify_load_flow(P, Q, V_init, theta_init, G, B):
-    num_buses = len(V_init)
-    
-    P_calculated = np.zeros(num_buses)
-    Q_calculated = np.zeros(num_buses)
-    
-    # Lastflussgleichungen
-    for i in range(num_buses):
-        for j in range(num_buses):
-            if i != j:
-                P_calculated[i] += V_init[i] * V_init[j] * (G[i][j] * math.cos(theta_init[i] - theta_init[j]) + B[i][j] * math.sin(theta_init[i] - theta_init[j]))
-                Q_calculated[i] += V_init[i] * V_init[j] * (G[i][j] * math.sin(theta_init[i] - theta_init[j]) - B[i][j] * math.cos(theta_init[i] - theta_init[j]))
+        
+# Newton-Raphson-Code:
+def power_mismatch(V, V1, Y, P1, P2):
+    P_calculated_1 = V1 * V * Y[0, 1]
+    P_calculated_2 = V**2 * Y[1, 1] - V1 * V * Y[0, 1]
+    dP1 = P1 - P_calculated_1
+    dP2 = P2 - P_calculated_2
+    return dP1, dP2
 
-    return V_init, P_calculated, Q_calculated
-def calculate_V2(P1, Q1, P2, Q2, Q_Comp, V1, theta1, theta2, B21):
-    V2_approx = (Q2 + Q_Comp) / (B21 * V1 * math.sin(theta1 - theta2))
-    return V2_approx
+def jacobian(V, V1, Y):
+    dP1_dV = V1 * Y[0, 1]
+    dP2_dV = 2 * V * Y[1, 1] - V1 * Y[0, 1]
+    return np.array([dP1_dV, dP2_dV])
 
-def compute_V2(P1, P2, Q1, Q2, theta1, theta2, B):
-    numerator = P2 + Q2 * (B[0][1] * math.sin(theta1 - theta2) / B[0][1])
-    denominator = 2 * B[0][1] * math.cos(theta1 - theta2)
-    
-    if numerator / denominator <= 0:
-        print("Negativer Wert in der Quadratwurzelfunktion:")
-        print("Numerator:", numerator)
-        print("Denominator:", denominator)
-        print("P1:", P1)
-        print("P2:", P2)
-        print("Q1:", Q1)
-        print("Q2:", Q2)
-        print("theta1:", theta1)
-        print("theta2:", theta2)
-        return 0  # oder einen anderen Standardwert oder Ausnahme werfen
-
-    return math.sqrt(numerator / denominator)
-
-
+def solve_lastfluss(Y, P1, P2, V1, V0, tol=1e-6, max_iter=100):
+    V = V0
+    for _ in range(max_iter):
+        dP1, dP2 = power_mismatch(V, V1, Y, P1, P2)
+        J = jacobian(V, V1, Y)
+        dV = (dP1 + dP2) / J.sum()
+        V += dV
+        if abs(dV) < tol:
+            break
+    return V
 
 if __name__ == "__main__":
     B = [[0, 0.08], [0.08, 0]]
     G = [[0, 0], [0, 0]]
-    Q_values = [-3, -2, -1, -0.1, 0, 6]
+    #Q_values = [-3, -2, -1, -0.1, 0, 6]
+
+    Q_values = [0, 6]  # Beispielwerte für Q2
     P1 = 1
     P2 = -1
     Q1 = 2
     Q_cap = 0.3
-    P = np.array([P1, P2], dtype=np.float64)
-    
-    output_results = []
 
     for Q2 in Q_values:
         model_phase1 = setup_phase1_model(P1, Q1, P2, Q2, B)
         model_phase1.optimize()
 
-        V2_value = 0  # Initialisierung von V2_value
-        try:
-            V2_value = model_phase1.getVarByName("V[1]").x
-        except AttributeError:
-            pass  # Wir können einfach "pass" verwenden, da V2_value bereits initialisiert ist.
-
-        theta_value = 0  # Initialisierung von theta_value
-        try:
-            theta_value = model_phase1.getVarByName("theta[1]").x
-        except AttributeError:
-            pass
-
-        theta_init = np.array([0, theta_value], dtype=np.float64)
+        V1_value = model_phase1.getVarByName("V[0]").x  # Extrahieren von V1
+        V2_value = model_phase1.getVarByName("V[1]").x  # Extrahieren von V2
 
         if model_phase1.Status == GRB.OPTIMAL:
             Q_Comp = model_phase1.getVarByName("Q_Comp").x
@@ -135,35 +110,16 @@ if __name__ == "__main__":
             model_phase2.optimize()
             k_value = model_phase2.getVarByName("k").x if model_phase2.Status == GRB.OPTIMAL else None
 
-            Q_updated = np.array([Q1, Q2 + Q_Comp], dtype=np.float64)
-            V2_calculated = compute_V2(P1, P2, Q1, Q_updated[1], theta_init[0], theta_init[1], B)
-            
-            verification_status = "erfolgreich" if math.isclose(V2_value, V2_calculated, rel_tol=1e-5) else "NICHT erfolgreich"
-            result = [Q2, "Feasible", Q_Comp, k_value, V2_value, verification_status, V2_calculated]
-            output_results.append(result)
+            print(f"Für Q2 = {Q2}:")
+            print(f"Optimale Blindleistungskompensation (Q_Comp) = {Q_Comp}")
+            print(f"Minimale Anzahl von Kompensatoren (k) = {k_value}")
 
-        else:
-            output_results.append([Q2, "Infeasible", None, None, V2_value])
-    
-    # Ergebnisse ausgeben
-    for result in output_results:
-        if "Infeasible" in result:
-            print(result)
-        else:
-            print(result[:5], f"Berechnete V[1]: {result[6]}")
-            print(f"Einfache Lastflussrechnung für Q2 = {result[0]} {result[5]} verifiziert!")
-            if result[5] == "NICHT erfolgreich":
-                print(f"Erwartete Spannung V[1]: {result[4]}")
-            print()
-
-
-
-            
-        
-
-
-
-
+            # Newton-Raphson-Berechnung:
+            Y = np.array([[1, 1], [1, 1]])  # Hier können Sie die Admittanzmatrix entsprechend Ihrem Netzwerk anpassen
+            V2_calculated = solve_lastfluss(Y, P1, P2, V1_value, V0=V2_value)
+            print(f"Die Spannung an Sammelschiene 2 nach IPM ist: {V2_value}")
+            print(f"Die Spannung an Sammelschiene 2 nach Newton-Raphson ist: {V2_calculated}")
+            print("----------")
 
 ## Nachträgliche Lastflussrechnung mit den Ergebnissen - Über-/Unterkompensation vermeiden
 ## Range für V2: 1.05 - 1.1

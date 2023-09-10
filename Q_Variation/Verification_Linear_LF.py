@@ -28,20 +28,16 @@ def setup_phase1_model(P1, Q1, P2, Q2, B):
     #model.addConstr(V_product == V1 * V2 * V2)
     model.addConstr(V_product == V[1] * V[1])
 
-
     model.addConstr(P1 - V_product * (B[0][1] * cos_theta_diff) >= 0, "p1_constraint")
     model.addConstr(Q1 + Q2 - Q_Comp - V_product * (B[0][1] * sin_theta_diff) >= 0, "q_constraint")
     model.addConstr(P2 - V_product * (B[1][0] * cos_theta_diff) <= 0, "p2_constraint")
-    model.addConstr(V[0] == 1, "slack_bus")
+    model.addConstr(V[0] == 1.05, "slack_bus")
     model.addConstr(theta[0] == 0, "slack_bus_angle")
     model.addConstr(V[1] >= 1.05, "Voltage range bus 2(1)")
     model.addConstr(V[1] <= 1.1, "Voltage range bus 2(2)")
 
     delta_plus = model.addVar(lb=0, name="delta_plus")
     delta_minus = model.addVar(lb=0, name="delta_minus")
-    
-    # model.addConstr(V[1] - 1 <= delta_plus, "delta_plus_constraint")
-    # model.addConstr(1 - V[1] <= delta_minus, "delta_minus_constraint")
 
     # Objective function
     #model.setObjectiveN(delta_plus + delta_minus, 0, priority=1, weight=1, name="PrimaryObj")
@@ -51,7 +47,6 @@ def setup_phase1_model(P1, Q1, P2, Q2, B):
     model.write('Q_Variation\\test-model.lp')
     return model
 
-
 def setup_phase2_model(Q_Comp_value, Q_cap):
     model = gp.Model("optimal_power_flow_phase2")
     model.params.OutputFlag = 0
@@ -60,12 +55,6 @@ def setup_phase2_model(Q_Comp_value, Q_cap):
     model.setObjective(k, GRB.MINIMIZE)
     return model
 
-
-import gurobipy as gp
-from gurobipy import GRB
-
- 
-
 def setup_linear_load_flow_model(P1, P2, Q1, Q2_plus_Q_Comp, B):
     model = gp.Model("linear_load_flow")
     
@@ -73,28 +62,38 @@ def setup_linear_load_flow_model(P1, P2, Q1, Q2_plus_Q_Comp, B):
     V = model.addVars(2, lb=0.9, ub=1.1, name="V")
     theta = model.addVars(2, lb=-math.pi, ub=math.pi, name="theta")
     theta_diff = model.addVar(lb=-math.pi, ub=math.pi, name="theta_diff")
+    cos_theta_diff = model.addVar(lb=-1, ub=1, name="cos_theta_diff")
+    sin_theta_diff = model.addVar(lb=-1, ub=1, name="sin_theta_diff")
+    V_prod = model.addVar(lb=0.9*0.9, ub=1.1*1.1, name="V_prod")  # Hilfsvariable Spannungsprodukt
     
     # Constraints
     # Für Sammelschiene 1 (Slack-Bus): 
     model.addConstr(theta[0] == 0, "slack_bus_angle")
     model.addConstr(V[0] == 1, "slack_bus_voltage")
     model.addConstr(theta_diff == theta[1] - theta[0], "theta_difference")
+
     # Für Sammelschiene 2:
     model.addConstr(V[1] >= 1.05, "Voltage range bus 2(1)")
     model.addConstr(V[1] <= 1.1, "Voltage range bus 2(2)")
  
+    # Constraints für den Phasenwinkelunterschied
+    model.addConstr(theta_diff == theta[1] - theta[0], "theta_difference")
+
+    # General constraints für sin und cos des Phasenwinkelunterschieds
+    model.addGenConstrSin(sin_theta_diff, theta_diff)
+    model.addGenConstrCos(cos_theta_diff, theta_diff)
+    model.addConstr(V_prod == V[0] * V[1])
+
+    # Active Power
+    model.addConstr(P1 >= V_prod * B[0][1] * cos_theta_diff, "P1_balance")
+    model.addConstr(P2 >= V_prod * B[1][0] * cos_theta_diff, "P2_balance")
     
-    # Wirkleistungs-Bilanz
-    model.addConstr(P1 == V[0] * V[1] * B[0][1] * gp.quicksum(math.cos(theta_diff)), "P1_balance")
-    model.addConstr(P2 == V[1] * V[0] * B[1][0] * gp.quicksum(math.cos(theta_diff)), "P2_balance")
-    
-    # Blindleistungs-Bilanz
-    model.addConstr(Q1 == -V[0] * V[1] * B[0][1] * gp.quicksum(math.sin(theta_diff)), "Q1_balance")
-    model.addConstr(Q2_plus_Q_Comp == V[1] * V[0] * B[1][0] * gp.quicksum(math.sin(theta_diff)), "Q2_balance")
+    # Reactive Power
+    model.addConstr(Q1 >= V_prod * B[0][1] * sin_theta_diff, "Q1_balance")
+    model.addConstr(Q2_plus_Q_Comp >= V_prod * B[1][0] * sin_theta_diff, "Q2_balance")
     
     # Zielsetzung (optional, da wir nur eine machbare Lösung suchen)
-    model.setObjective(0)
-    
+    model.setObjective(V[1], GRB.MAXIMIZE)    
     return model
 
 def get_V2_from_linear_model(P1, P2, Q1, Q2_plus_Q_Comp, B):
@@ -104,6 +103,10 @@ def get_V2_from_linear_model(P1, P2, Q1, Q2_plus_Q_Comp, B):
     # Optimiere das Modell
     model.optimize()
 
+    # Schreibe das Modell in eine .lp Datei
+    filename = f'Q_Variation\\Verification_Lastfluss{Q2_plus_Q_Comp}.lp'
+    model.write(filename)
+
     # Prüfe, ob eine optimale Lösung gefunden wurde
     if model.status == GRB.OPTIMAL:
         V2 = model.getVarByName("V[1]").x
@@ -111,14 +114,16 @@ def get_V2_from_linear_model(P1, P2, Q1, Q2_plus_Q_Comp, B):
     else:
         return None  # Keine Lösung gefunden
 
+
 if __name__ == "__main__":
     B = [[0, 0.08], [0.08, 0]]
     G = [[0, 0], [0, 0]]
     Q_values = [-3, -2, -1, -0.1, 0, 6]
     P1 = 1
-    P2 = -1
+    P2 = 1
     Q1 = 2
-    Q_cap = 0.3
+    #Q_cap = 0.3
+    Q_cap = 0.001 
     P = np.array([P1, P2], dtype=np.float64)
     
     output_results = []
@@ -178,3 +183,9 @@ if __name__ == "__main__":
         else:
             print("Keine optimale Lösung in Phase 1 gefunden.")
         print("----------------------------")
+
+
+### Werte aus Model phase 1 in Powerfactory
+### Fokus auf diskrete Schaltungen
+### Stimmiges Ergebnis bis in 3 Wochen
+### Induktivität und Kapazität 
