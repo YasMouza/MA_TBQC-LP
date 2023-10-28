@@ -5,13 +5,42 @@ sys.path.append("C:\\Users\\yasin\\source\\MA_TBQC LP")
 from main_powerfactory import PowerFactory
 from loadflow import LoadFlow
 import pandas as pd
+import numpy as np
+import math as m
 
 # Netzwerkparameter
 P1 = 100  # MW
 #P2 = -100  # MW
 
+
+l = 70  # Leitungslänge in km
+R_per_km = 0.018  # Ohm/km
+X_per_km = 0.123  # Ohm/km
+Cb_per_km = 280e-9  # F/km
+
+# Berechnung der Leitungsparameter
+R = R_per_km * l
+X = X_per_km * l
+Cb = Cb_per_km * l
+
+# Frequenz
+f = 50  # Frequenz in Hz
+
+# Berechnung der Kreisfrequenz
+omega = 2 * np.pi * f
+
+# Berechnung der Suszeptanz der Kapazität
+B_C_2 = omega * Cb / 2
+
+# Berechnung der Gesamtsuszeptanz der Leitung
+B_L = 1 / X
+B_ges = 2 * B_C_2 + B_L
+print(B_ges)
+
+G = 1/R
+print(G)
 V1_pu = 1.03  # Spannung an Busbar 1 in p.u.
-B = 0.08  # Suszeptanz in p.u. (B = 1/X)
+#B = 0.08  # Suszeptanz in p.u. (B = 1/X)
 V2_min = 1.05  # Mindestspannung an Busbar 2 in p.u.
 V2_max = 1.1  # Höchstspannung an Busbar 2 in p.u.
 V2_target = 1.05*110
@@ -91,12 +120,21 @@ for q2 in q2_values_stat_gen:
     Q2 = model.addVar(lb=-100, ub=100, name="Q2") 
     P2 = model.addVar(lb=-100, ub=100, name="P2") 
     V2_pu = model.addVar(lb=V2_min, ub=V2_max, name="V2")
+    V2_sum = V2_pu**2
+    V1_sum = V1_pu**2
+    V2_V1 = V2_pu * V1_pu
     delta_Q = model.addVar(lb=-100, ub=100, name="delta_Q")
+    theta = model.addVar(lb = -m.pi, ub = m.pi, name = "theta")
 
     # Constraints
-    model.addConstr(V1_pu * Q1 + 1/B == Q2 * V2_pu, "Leistungsfluss_Q2")
-    model.addConstr(B*V2 * (V2 - V2_target) - delta_Q == 0, "Kompensationsblindleistung, um auf 1,05 zu regeln")
+    #model.addConstr(V1_pu * Q1 + 1/B_ges == Q2 * V2_pu, "Leistungsfluss_Q2")
+    #model.addConstr(B_ges*V2 * (V2 - V2_target) - delta_Q == 0, "Kompensationsblindleistung, um auf 1,05 zu regeln")
+    # Variablen
+
     
+    model.addConstr(V1_sum * G + V2_V1 * (G * m.cos(theta) + B_ges * m.sin(theta)) >= P2, "P_ungleichung")
+    model.addConstr(-V1_sum * B_ges + V2_V1 * (G * m.sin(theta) - B_ges * m.cos(theta)) >= Q2, "Q_ungleichung")
+
     # Zielsetzung
     model.setObjective(V2, GRB.MINIMIZE)
     

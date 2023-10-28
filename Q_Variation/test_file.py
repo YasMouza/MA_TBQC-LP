@@ -1,128 +1,205 @@
 import gurobipy as gp
 from gurobipy import GRB
-import math
-import numpy as np
+import sys
+sys.path.append("C:\\Users\\yasin\\source\\MA_TBQC LP")
+from main_powerfactory import PowerFactory
+from loadflow import LoadFlow
+import pandas as pd
+
+# Netzwerkparameter
+P1 = 100  # MW
+R = 0.05  # Ohm (Widerstand der Leitung)
+X = 0.1   # Ohm (Reaktanz der Leitung)
+C = 0.00001  # F (Kapazitanz der Leitung)
+
+# Admittanz berechnen
+Y = 1 / (R + 1j*X)  # Admittanz der Leitung
+G = Y.real  # Leitwert
+B = Y.imag  # Suszeptanz
 
 
-def setup_phase1_model(P1, Q1, P2, Q2, B):
-    model = gp.Model("optimal_power_flow_phase1")
+V1_pu = 1.03  # Spannung an Busbar 1 in p.u.
+B = 0.08  # Suszeptanz in p.u. (B = 1/X)
+V2_min = 1.05  # Mindestspannung an Busbar 2 in p.u.
+V2_max = 1.1  # Höchstspannung an Busbar 2 in p.u.
+V2_target = 1.05*110
+
+# 1. ACloadflow
+path = r'C:\Program Files\DIgSILENT\PowerFactory 2023 SP3A\Python\3.9'
+pf = PowerFactory(path)
+project_name = '[MA] Equipment Modelling - SVC'
+app = pf.open_app(project_name)
+ldf_ac = LoadFlow(app)
+ldf_ac.run()
+
+#1.1 Grid parameters
+Sbase = 100
+
+# Get Values from Powerfactory
+bus_all = app.GetCalcRelevantObjects('*.ElmTerm')
+bus1 = bus_all[0]
+bus2 = bus_all[1]
+
+V1 = bus1.GetAttribute('m:Ul')
+V2 = bus2.GetAttribute('m:Ul')
+print('V2 = ', V2)
+print('V1 = ', V1)
+
+V1_pu = bus1.GetAttribute('m:u')
+V2_pu = bus2.GetAttribute('m:u')
+
+#set bus1 const v 
+bus1.av_control = 1
+bus1.av_set = 1.03
+
+#set bus2 const q 
+bus2.av_control = 2
+
+
+synch_gen = app.GetCalcRelevantObjects('*.ElmSym')
+p_1 = synch_gen[0].GetAttribute('m:P:bus1')
+q_1 = synch_gen[0].GetAttribute('m:Q:bus1')
+
+stat_gen = app.GetCalcRelevantObjects('*.ElmGenstat')
+p_2 = stat_gen[0].GetAttribute('m:P:bus1')
+q_2 = stat_gen[0].GetAttribute('m:Q:bus1')
+
+shunt = app.GetCalcRelevantObjects('*.ElmShnt')
+reactor = shunt[1] 
+capacitor = shunt[0]
+print(reactor.loc_name)
+print(capacitor.loc_name)
+
+
+results_df = pd.DataFrame(columns=['q2', 'Q1','Q_shunt', 'delta_Q', 'k', 'Q2', 'V2_pu'])   # Dataframe für Berechnungen
+results_pf = pd.DataFrame(columns=['q2', 'Q1', 'Q_shunt', 'delta_Q', 'Kompensationstyp'])  # Dataframe für Werte aus PF
+
+q2_values_stat_gen = [-50, 50, 75, 100]  # Values of static Generator
+
+for q2 in q2_values_stat_gen:
+    #stat_gen.qgini = q2
+    stat_gen[0].qgini = q2
+    reactor.outserv = 1  # Induktivität abschalten
+    capacitor.outserv = 1  # Kapazität abschalten  
+    ldf_ac.run()
+    ldf_ac.iopt_asht = 1
     
-    # Model parameters
+    Q1 = bus1.GetAttribute('m:Qflow') #Q1 ohne Kompensation
+    V1 = bus1.GetAttribute('m:Ul')
+    V2 = bus2.GetAttribute('m:Ul')
+    V1_pu = bus1.GetAttribute('m:u')
+    V2_pu = bus2.GetAttribute('m:u')
+
+    # Initialisieren Sie das Modell
+    model = gp.Model("Blindleistungsoptimierung")
     model.params.NonConvex = 2
     model.params.Method = 2
-    model.params.OutputFlag = 0
     
-    # Variables
-    V = model.addVars(2, lb=0.9, ub=1.1, name="V")
-    theta = model.addVars(2, lb=-math.pi, ub=math.pi, name="theta")
-    Q_Comp = model.addVar(lb=0, ub=GRB.INFINITY, name="Q_Comp")
-    cos_theta_diff = model.addVar(lb=-1, ub=1, name="cos_theta_diff")
-    sin_theta_diff = model.addVar(lb=-1, ub=1, name="sin_theta_diff")
-    theta_diff = model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY, name="theta_diff")
-    V_product = model.addVar(lb=0, ub=GRB.INFINITY, name="V_product")
-    
+    # Variablen
+    Q2 = model.addVar(lb=-100, ub=100, name="Q2") 
+    P2 = model.addVar(lb=-100, ub=100, name="P2") 
+    V2_pu = model.addVar(lb=V2_min, ub=V2_max, name="V2")
+    delta_Q = model.addVar(lb=-100, ub=100, name="delta_Q")
+
     # Constraints
-    model.addGenConstrCos(cos_theta_diff, theta_diff)
-    model.addGenConstrSin(sin_theta_diff, theta_diff)
-    model.addConstr(theta_diff == theta[0] - theta[1])
-    #model.addConstr(V_product == V1 * V2 * V2)
-    model.addConstr(V_product == V[1] * V[1])
-
-
-    model.addConstr(P1 - V_product * (B[0][1] * cos_theta_diff) >= 0, "p1_constraint")
-    model.addConstr(Q1 + Q2 - Q_Comp - V_product * (B[0][1] * sin_theta_diff) >= 0, "q_constraint")
-    model.addConstr(P2 - V_product * (B[1][0] * cos_theta_diff) <= 0, "p2_constraint")
-    model.addConstr(V[0] == 1, "slack_bus")
-    model.addConstr(theta[0] == 0, "slack_bus_angle")
-    model.addConstr(V[1] >= 1.05, "Voltage range bus 2(1)")
-    model.addConstr(V[1] <= 1.1, "Voltage range bus 2(2)")
-
-    delta_plus = model.addVar(lb=0, name="delta_plus")
-    delta_minus = model.addVar(lb=0, name="delta_minus")
+    model.addConstr(V1_pu * Q1 + V1_pu * V2_pu * B - V1_pu**2 * B == Q2 * V2_pu, "Leistungsfluss_Q2")
+    model.addConstr(V1_pu * P1 - V1_pu**2 * G + V1_pu * V2_pu * G == P2 * V2_pu, "Leistungsfluss_P1")
+    model.addConstr(B*V2 * (V2 - V2_target) - delta_Q == 0, "Kompensationsblindleistung, um auf 1,05 zu regeln")
+ 
+    # Zielsetzung
+    model.setObjective(V2, GRB.MINIMIZE)
     
-    # model.addConstr(V[1] - 1 <= delta_plus, "delta_plus_constraint")
-    # model.addConstr(1 - V[1] <= delta_minus, "delta_minus_constraint")
 
-    # Objective function
-    #model.setObjectiveN(delta_plus + delta_minus, 0, priority=1, weight=1, name="PrimaryObj")
-    #model.setObjective(V[1], GRB.MINIMIZE)
-    #model.setObjectiveN(V[1], 0, priority = 0, weight=1, name = "primaryObj")
-    model.setObjectiveN(Q_Comp, 1, priority=1, weight=-1, name="SecondaryObj") 
-    model.write('Q_Variation\\test-model.lp')
-    return model
+    Q_shunt_set = 20
 
+    # Optimierung starten
+    model.optimize()
+    print(delta_Q.x)
+    delta_Q = delta_Q.x
+    V2_pu_squared = V2_pu.x**2
+    Q_shunt = delta_Q/V2_pu_squared
+    optimal_V2 = V2_pu.x
+    optimal_Q2 = Q2.x
+    
+    k = Q_shunt/Q_shunt_set
+    
+    #Fallunterscheidung bei k +- 1 
 
-def setup_phase2_model(Q_Comp_value, Q_cap):
-    model = gp.Model("optimal_power_flow_phase2")
-    model.params.OutputFlag = 0
-    k = model.addVar(lb=1, ub=30, vtype=GRB.INTEGER, name="k")
-    model.addConstr(k >= Q_Comp_value/Q_cap)
-    model.setObjective(k, GRB.MINIMIZE)
-    return model
+    # Ergebnisse abrufen  
+    if model.status == GRB.OPTIMAL:        
+        results_df = results_df.append({
+            'q2': q2,
+            'Q1 vor Komp.': Q1,
+            'Q_shunt': Q_shunt,
+            'delta_Q': delta_Q,
+            'k': k,
+            'Q2': optimal_Q2,
+            'V2_pu': optimal_V2
+        }, ignore_index=True)
+    else:
+        print("Das Problem hat keine optimale Lösung gefunden.")
+    
+    
+    #ldf_ac.run()
+    # Ergebnisse mit PowerFactory vergleichen
+
+    if q2 < 0:
+        #capacitor.iopt_net = 1  # Kapazität einschalten 
+        capacitor.outserv = 0
+        capacitor.iTaps = 0
+        if Q_shunt < 0:
+            Q_shunt = -Q_shunt
+        capacitor.qcapn = Q_shunt
+        print(capacitor.qcapn)
+    elif q2 > 0:
+        reactor.outserv = 0
+        #reactor.iopt_net = 1  # Induktivität einschalten
+        reactor.iTaps = 0
+        if Q_shunt < 0:
+            Q_shunt = -Q_shunt
+        reactor.qrean = Q_shunt
+        print(reactor.qrean)
+    
+    
+    ldf_ac.run()
+    ldf_ac.iopt_asht = 1
+    
+    if q2 < 0:
+        value_capacitor = capacitor.GetAttribute('m:Q:bus1')
+        #value_reactor = 0
+    elif q2 > 0:
+        value_reactor = reactor.GetAttribute('m:Q:bus1') 
+        #value_capacitor = 0
+
+    if model.status == GRB.OPTIMAL:
+        if q2 < 0:
+            results_pf = results_pf.append({
+                'q2': q2,
+                'Q1 nach Komp.': bus1.GetAttribute('m:Qflow'),
+                'Q_shunt': Q_shunt,
+                'delta_Q': value_capacitor,
+                'Kompensationstyp': 'Kapazitiv'
+            }, ignore_index=True)
+        elif q2 > 0:
+            results_pf = results_pf.append({
+                'q2': q2,
+                'Q1 nach Komp.': bus1.GetAttribute('m:Qflow'),
+                'Q_shunt': Q_shunt,
+                'delta_Q': value_reactor,
+                'Kompensationstyp': 'Induktiv'
+            }, ignore_index=True)
+    else:
+        print("Das Problem hat keine optimale Lösung gefunden.")
 
 
         
-# Newton-Raphson-Code:
-def power_mismatch(V, V1, Y, P1, P2):
-    P_calculated_1 = V1 * V * Y[0, 1]
-    P_calculated_2 = V**2 * Y[1, 1] - V1 * V * Y[0, 1]
-    dP1 = P1 - P_calculated_1
-    dP2 = P2 - P_calculated_2
-    return dP1, dP2
+    
+print('Ergebnisse aus dem Modell:')  
+print('-------------------------------------')  
+print(results_df)
+print('Ergebnisse aus PowerFactory:')
+print('-------------------------------------')
+print(results_pf)
+# Modell aufräumen
+model.dispose()
 
-def jacobian(V, V1, Y):
-    dP1_dV = V1 * Y[0, 1]
-    dP2_dV = 2 * V * Y[1, 1] - V1 * Y[0, 1]
-    return np.array([dP1_dV, dP2_dV])
-
-def solve_lastfluss(Y, P1, P2, V1, V0, tol=1e-6, max_iter=100):
-    V = V0
-    for _ in range(max_iter):
-        dP1, dP2 = power_mismatch(V, V1, Y, P1, P2)
-        J = jacobian(V, V1, Y)
-        dV = (dP1 + dP2) / J.sum()
-        V += dV
-        if abs(dV) < tol:
-            break
-    return V
-
-if __name__ == "__main__":
-    B = [[0, 0.08], [0.08, 0]]
-    G = [[0, 0], [0, 0]]
-    #Q_values = [-3, -2, -1, -0.1, 0, 6]
-
-    Q_values = [0, 6]  # Beispielwerte für Q2
-    P1 = 1
-    P2 = -1
-    Q1 = 2
-    Q_cap = 0.3
-
-    for Q2 in Q_values:
-        model_phase1 = setup_phase1_model(P1, Q1, P2, Q2, B)
-        model_phase1.optimize()
-
-        V1_value = model_phase1.getVarByName("V[0]").x  # Extrahieren von V1
-        V2_value = model_phase1.getVarByName("V[1]").x  # Extrahieren von V2
-
-        if model_phase1.Status == GRB.OPTIMAL:
-            Q_Comp = model_phase1.getVarByName("Q_Comp").x
-            model_phase2 = setup_phase2_model(Q_Comp, Q_cap)
-            model_phase2.optimize()
-            k_value = model_phase2.getVarByName("k").x if model_phase2.Status == GRB.OPTIMAL else None
-
-            print(f"Für Q2 = {Q2}:")
-            print(f"Optimale Blindleistungskompensation (Q_Comp) = {Q_Comp}")
-            print(f"Minimale Anzahl von Kompensatoren (k) = {k_value}")
-
-            # Newton-Raphson-Berechnung:
-            Y = np.array([[1, 1], [1, 1]])  # Hier können Sie die Admittanzmatrix entsprechend Ihrem Netzwerk anpassen
-            V2_calculated = solve_lastfluss(Y, P1, P2, V1_value, V0=V2_value)
-            print(f"Die Spannung an Sammelschiene 2 nach IPM ist: {V2_value}")
-            print(f"Die Spannung an Sammelschiene 2 nach Newton-Raphson ist: {V2_calculated}")
-            print("----------")
-
-## Nachträgliche Lastflussrechnung mit den Ergebnissen - Über-/Unterkompensation vermeiden
-## Range für V2: 1.05 - 1.1
-## k-Wert wird so angepasst, dass in nachfolgender LF Rechnung diese Range erreicht wird
-## Spannung am Slack != 1 (1x höher, 1x niedriger) 
-## Spannung im Netz bricht ein (V1 = 0.9, 0.95)
