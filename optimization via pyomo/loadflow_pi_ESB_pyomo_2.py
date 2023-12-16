@@ -1,0 +1,1 @@
+#### Calculation with R = 0 

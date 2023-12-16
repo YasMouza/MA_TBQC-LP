@@ -1,8 +1,0 @@
-1. Wind
-- Kabel
-2. Substation: Kompensation 
-- Leitung/Kabel
-3. Netz
-
-Kabellängen (R, X, C) 
-- pi-ESB

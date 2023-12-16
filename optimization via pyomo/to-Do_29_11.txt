@@ -1,0 +1,14 @@
+### Step 1: nur mit X 
+
+### Wenn konvergiert, dann mit Pi-ESB fortfahren
+
+Zeitplan: 
+- bis 04.12.: Modell aufbauen mit kompensation
+ 
+
+
+
+Trafo: 
+- 1. Als Induktivität 
+- Mit Zeitreihenwerte für Windpark
+

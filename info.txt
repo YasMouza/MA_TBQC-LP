@@ -1,0 +1,7 @@
+Dieses Projekt behandelt die Berechnung der Kompensation mittels IPM 
+Betrachtet wird ein 2 Bus System mit einem Synchron-Generator an Busbar 1, einem Shung und statischem Generator an Busbar 2
+
+
+discrete switching scheme - 01: ausschließlich X Widerstand (B = 0.08)
+    die anderen Widerstände werden hier zunächst vernachlässigt
+
