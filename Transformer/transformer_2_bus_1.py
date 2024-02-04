@@ -50,17 +50,24 @@ model.k_int = Var(domain=Integers)
 model.theta = Var(range(n), bounds=(-math.pi, math.pi))
 model.Q_shunt = Var(bounds=(-500, 500))
 
+model.t = Var(bounds=(-10, 10))
 
 ## VZS
+#t = Übersetzungsverhältnis
 # Admittanzwerte (nur Imaginärteile, repräsentieren Suszeptanz)
-B_12 = B_21 = -1 / X  # Suszeptanz zwischen den Knoten
-#B_shunt = ((model.k * 0.1)/1.05**2)  # Kompensations-Suszeptanz am Knoten 2
-B_shunt = (model.k * (Q_set_shunt/100))
-B_10 = (omega*C)/2 * (110000*2)/120e6
-#B_20 = 1/ k * X  # Kompensations-Suszeptanz am Knoten 2
-# Berechnung der Suszeptanzwerte der Admittanzmatrix
-B_11 = -B_12 + B_10 # Suszeptanz für Knoten 1
-B_22 = B_21 + B_shunt + B_10  # Suszeptanz für Knoten 2
+
+B_12 = B_21 = - ((1+ model.t*1.25)/1)
+B_11 =  1/X
+B_22 = (1/X)**2
+
+# B_12 = B_21 = -1 / X  # Suszeptanz zwischen den Knoten
+# #B_shunt = ((model.k * 0.1)/1.05**2)  # Kompensations-Suszeptanz am Knoten 2
+# B_shunt = (model.k * (Q_set_shunt/100))
+# B_10 = (omega*C)/2 * (110000*2)/120e6
+# #B_20 = 1/ k * X  # Kompensations-Suszeptanz am Knoten 2
+# # Berechnung der Suszeptanzwerte der Admittanzmatrix
+# B_11 = -B_12 + B_10 # Suszeptanz für Knoten 1
+# B_22 = B_21 + B_shunt + B_10  # Suszeptanz für Knoten 2
 
 # Realteil der Admittanzmatrix (G_ij) ist 0, da kein Widerstand vorhanden ist
 G_ij = [[0, 0], [0, 0]]
@@ -83,12 +90,11 @@ model.tap_adjustment = Constraint(expr=model.Q_shunt <= model.k * Q_set_shunt)
 
 model.delta_v_1 = Constraint(expr=model.delta_v >= model.V[1] - V2_target)
 model.delta_v_2 = Constraint(expr=model.delta_v >= V2_target - model.V[1])
-# model.k_int_1 = Constraint(expr=model.k_int <= model.k)
-# model.k_int_2 = Constraint(expr=model.k - model.k_int <= 1)
+
 model.theta_0 = Constraint(expr=model.theta[0] == 0)
 
 model.Q2 = Constraint(expr=model.Q[1] == model.V[1]*(G_ij[1][0]*sin(model.theta[1]-model.theta[0])-B_ij[1][0]*cos(model.theta[1]-model.theta[0])) - B_ij[1][1]*cos(0) + G_ij[1][1]*sin(0))
-model.Q1 = Constraint(expr=model.Q[0] == V1*(G_ij[1][0]*sin(model.theta[0]-model.theta[0])-B_ij[1][0]*cos(model.theta[1]-model.theta[0])) - B_ij[0][1])
+#model.Q1 = Constraint(expr=model.Q[0] == V1*(G_ij[1][0]*sin(model.theta[0]-model.theta[0])-B_ij[1][0]*cos(model.theta[1]-model.theta[0])) - B_ij[0][1])
 
 model.P2 = Constraint(expr=model.P[1] == model.V[1]*(B_ij[1][0]*sin(model.theta[1]-model.theta[0])-G_ij[1][0]*cos(model.theta[1]-model.theta[0])) - G_ij[1][1]*cos(0) + B_ij[1][1]*sin(0))
 #model.P1 = Constraint(expr=model.P[0] == V1*(B_ij[1][0]*sin(model.theta[1]-model.theta[0])-G_ij[1][0]*cos(model.theta[1]-model.theta[0])) - G_ij[0][1])
@@ -98,19 +104,13 @@ test = 1
 # Zielsetzung
 model.objective = Objective(expr=model.delta_v, sense=minimize)
 
-model.write('optimization via pyomo\\model.nl', io_options={'symbolic_solver_labels': True})
+#model.write('optimization via pyomo\\model.nl', io_options={'symbolic_solver_labels': True})
 # Modell lösen
 solver = SolverFactory('ipopt')
 solver.solve(model)
 
 # Lösung des Modells
 results = solver.solve(model, tee=True)
-
-print(model.k.value)
-print("B 22",B_22)
-print("B 20",B_shunt)
-Q_comp = ((model.V[1].value)**2 * B_22)*100
-print("Q_comp: ",Q_comp)
 
 Q_comp_vgl = (model.k.value * Q_set_shunt*100)
 print("Q_comp_vgl: ",Q_comp_vgl)
@@ -119,8 +119,7 @@ print("Q_comp_vgl: ",Q_comp_vgl)
 if results.solver.status == SolverStatus.ok and results.solver.termination_condition == TerminationCondition.optimal:
     print("Optimale Lösung gefunden:")
     print("V2 nach Kompensation: ", model.V[1].value)
-    print("k: ", model.k.value)
-    #print("k_int: ", model.k_int.value)
+    print("t: ", model.t.value)
 elif results.solver.termination_condition == TerminationCondition.infeasible:
     print("Keine optimale Lösung gefunden. Modell ist unzulässig.")
     
